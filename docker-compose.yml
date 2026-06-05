@@ -34,10 +34,24 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-      - ./nginx/certs:/etc/nginx/certs:ro
+      # config attiva (init-ssl.sh sostituisce questo file dopo il primo cert)
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      # certificati Let's Encrypt
+      - ./nginx/letsencrypt:/etc/letsencrypt:ro
+      # webroot per le challenge ACME di certbot
+      - ./nginx/webroot:/var/www/certbot:ro
     depends_on:
       - app
+    networks:
+      - internal
+
+  # Servizio certbot — usato solo per rinnovo automatico (non parte con "up")
+  certbot:
+    image: certbot/certbot:latest
+    profiles: ["certbot"]
+    volumes:
+      - ./nginx/letsencrypt:/etc/letsencrypt
+      - ./nginx/webroot:/var/www/certbot
     networks:
       - internal
 
