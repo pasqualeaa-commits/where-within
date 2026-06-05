@@ -95,12 +95,14 @@ export function calculateCost(params: {
     daysUntilFlight: params.daysUntilFlight,
   });
 
-  const hotelPerNight = estimateHotelNightlyCents(params.costOfLivingScore);
+  // × 2 per il volo di ritorno (stima: ritorno ≈ stesso prezzo dell'andata)
+  const flight_cents  = flight.price_cents * 2;
+  const hotelPerNight = estimateHotelNightlyCents(params.costOfLivingScore, params.travelMonth, params.destLat);
   const hotel_cents   = hotelPerNight * params.nights;
-  const total_cents   = flight.price_cents + hotel_cents;
+  const total_cents   = flight_cents + hotel_cents;
 
   return {
-    flight_cents: flight.price_cents,
+    flight_cents,
     hotel_cents,
     total_cents,
     nights: params.nights,

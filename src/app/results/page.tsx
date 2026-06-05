@@ -47,15 +47,15 @@ export default async function ResultsPage({ searchParams }: PageProps) {
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Navbar */}
-      <header className="bg-white border-b border-slate-100 px-4 py-4 sticky top-0 z-10">
+      <header className="bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-700 px-4 py-4 sticky top-0 z-10 shadow-md">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 text-slate-900 font-bold">
+          <Link href="/" className="flex items-center gap-2 text-white font-bold">
             <span className="text-xl">🌍</span>
             <span className="tracking-tight">WhereWithin</span>
           </Link>
           <Link
             href={`/?from=${from}&budget=${budget}&start_date=${start_date}&end_date=${end_date}`}
-            className="text-sm text-indigo-600 font-medium hover:underline"
+            className="text-sm text-white/80 font-medium hover:text-white transition-colors"
           >
             ← Modifica ricerca
           </Link>
@@ -105,7 +105,12 @@ export default async function ResultsPage({ searchParams }: PageProps) {
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {result.data.map((dest) => (
-                <DestinationCard key={dest.id} result={dest} nights={nights} />
+                <DestinationCard
+                  key={dest.id}
+                  result={dest}
+                  nights={nights}
+                  searchContext={{ from, budget, start_date, end_date }}
+                />
               ))}
             </div>
             <p className="mt-6 text-xs text-slate-400 text-center">

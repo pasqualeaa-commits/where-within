@@ -1,7 +1,0 @@
-# Override per sviluppo locale — caricato automaticamente da Docker Compose.
-# In produzione usa: docker compose -f docker-compose.yml up -d
-
-services:
-  db:
-    ports:
-      - "5432:5432"   # espone il DB all'host così npm run dev può connettersi

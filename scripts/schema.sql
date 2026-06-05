@@ -49,6 +49,15 @@ CREATE TABLE IF NOT EXISTS climate_monthly (
   UNIQUE (destination_id, month)
 );
 
+-- Rotte dirette tra aeroporti (dataset OpenFlights routes.dat)
+-- Usate per segnalare se serve uno scalo: se non esiste (src,dst) → volo con scalo
+CREATE TABLE IF NOT EXISTS routes (
+  src_iata CHAR(3) NOT NULL,
+  dst_iata CHAR(3) NOT NULL,
+  PRIMARY KEY (src_iata, dst_iata)
+);
+CREATE INDEX IF NOT EXISTS idx_routes_src ON routes (src_iata);
+
 -- Eventi ricorrenti: festival, carnevali, fiere, eventi sportivi
 -- month_start/end: mesi in cui si svolge (es. Carnevale: 2-2)
 CREATE TABLE IF NOT EXISTS events (

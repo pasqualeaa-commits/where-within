@@ -2,14 +2,45 @@
 // Tutti i prezzi sono in EUR cents (es. 15000 = €150.00)
 
 // --- Hotel ---
-// Stima il costo medio per notte da punteggio Teleport "cost_of_living" (0-10).
-// Punteggio alto = città economica → hotel più economici.
-// Range: score 10 → €35/notte, score 0 → €200/notte
-export function estimateHotelNightlyCents(costOfLivingScore: number | null): number {
+// Stima il costo medio per notte (camera doppia, 3 stelle) da due fattori:
+//   1. punteggio "cost_of_living" 0-10 (alto = città economica → hotel più economici)
+//   2. stagionalità del mese di soggiorno (alta stagione → prezzi più alti)
+// Range base: score 10 → €35/notte, score 0 → €200/notte
+// Nota: gli hotel variano meno dei voli, quindi i moltiplicatori stagionali sono più miti.
+
+const HOTEL_SEASON_MULTIPLIERS: Record<number, { value: number; label: string }> = {
+  1:  { value: 0.85, label: "bassa stagione" },
+  2:  { value: 0.85, label: "bassa stagione" },
+  3:  { value: 0.92, label: "spalla" },
+  4:  { value: 1.00, label: "spalla" },
+  5:  { value: 1.08, label: "spalla alta" },
+  6:  { value: 1.18, label: "alta stagione" },
+  7:  { value: 1.28, label: "picco" },
+  8:  { value: 1.28, label: "picco" },
+  9:  { value: 1.08, label: "spalla alta" },
+  10: { value: 0.95, label: "spalla" },
+  11: { value: 0.85, label: "bassa stagione" },
+  12: { value: 1.05, label: "festività" }, // Natale/Capodanno
+};
+
+export function getHotelSeasonMultiplier(month: number): { value: number; label: string } {
+  return HOTEL_SEASON_MULTIPLIERS[month] ?? { value: 1.0, label: "standard" };
+}
+
+export function estimateHotelNightlyCents(
+  costOfLivingScore: number | null,
+  travelMonth?: number,
+  destLat?: number,
+): number {
   const score = costOfLivingScore ?? 5;
   const min = 3500;   // €35 (città molto economica)
   const max = 20000;  // €200 (città molto cara)
-  return Math.round(max - (score / 10) * (max - min));
+  const base = max - (score / 10) * (max - min);
+  const month = travelMonth != null && destLat != null
+    ? effectiveSeasonMonth(travelMonth, destLat)
+    : travelMonth;
+  const season = month ? getHotelSeasonMultiplier(month).value : 1;
+  return Math.round(base * season);
 }
 
 // --- Volo ---
@@ -43,19 +74,13 @@ export function haversineKm(
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// --- Prezzo base per fascia di distanza ---
-
-// Basato su medie storiche pubbliche Eurostat / IATA per fascia km
-const DISTANCE_BANDS: Array<{ maxKm: number; priceCents: number }> = [
-  { maxKm: 500,   priceCents:  8000 },  // volo breve (es. Milano-Roma)
-  { maxKm: 1500,  priceCents: 14000 },  // medio corto (es. Milano-Barcellona)
-  { maxKm: 3000,  priceCents: 25000 },  // medio lungo (es. Milano-Istanbul)
-  { maxKm: 6000,  priceCents: 42000 },  // lungo raggio (es. Milano-New York)
-  { maxKm: Infinity, priceCents: 70000 }, // ultra lungo (es. Milano-Tokyo)
-];
-
+// --- Prezzo base (sola andata) in funzione continua della distanza ---
+// Curva di potenza calibrata su tariffe medie reali (sola andata, classe economica):
+//   500 km ≈ €45 · 1500 km ≈ €105 · 3000 km ≈ €170 · 6000 km ≈ €300 · 16000 km ≈ €655
+// Sostituisce le 5 fasce grezze che davano lo stesso prezzo a Tokyo, Sydney e Bangkok.
 export function getBasePriceCents(distanceKm: number): number {
-  return DISTANCE_BANDS.find((b) => distanceKm <= b.maxKm)!.priceCents;
+  const eur = 0.38 * Math.pow(Math.max(1, distanceKm), 0.77);
+  return Math.round(Math.max(30, eur) * 100);
 }
 
 // --- Moltiplicatore stagionale ---
@@ -78,6 +103,13 @@ const SEASON_MULTIPLIERS: Record<number, { value: number; label: string }> = {
 
 export function getSeasonMultiplier(month: number): { value: number; label: string } {
   return SEASON_MULTIPLIERS[month] ?? { value: 1.0, label: "standard" };
+}
+
+// Emisfero sud: le stagioni sono invertite di 6 mesi (luglio nord = inverno sud).
+// destLat < 0 → sposta il mese di 6 per ottenere la stagione "percepita".
+export function effectiveSeasonMonth(month: number, destLat: number): number {
+  if (destLat >= 0) return month;
+  return ((month - 1 + 6) % 12) + 1;
 }
 
 // --- Moltiplicatore anticipo prenotazione ---
@@ -111,7 +143,7 @@ export function estimateFlightCost(params: {
     haversineKm(params.originLat, params.originLon, params.destLat, params.destLon)
   );
   const base_price_cents = getBasePriceCents(distance_km);
-  const season = getSeasonMultiplier(params.travelMonth);
+  const season = getSeasonMultiplier(effectiveSeasonMonth(params.travelMonth, params.destLat));
   const advance = getAdvanceMultiplier(params.daysUntilFlight);
 
   const price_cents = Math.round(base_price_cents * season.value * advance.value);

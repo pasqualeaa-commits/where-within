@@ -9,7 +9,10 @@
     "lint": "eslint",
     "db:seed": "tsx scripts/seed-destinations.ts",
     "db:seed-climate": "tsx scripts/seed-climate.ts",
-    "db:seed-airports": "tsx scripts/seed-airports.ts"
+    "db:seed-airports": "tsx scripts/seed-airports.ts",
+    "db:seed-numbeo": "tsx scripts/seed-numbeo.ts",
+    "db:seed-cities": "tsx scripts/seed-cities-from-csv.ts",
+    "db:seed-routes": "tsx scripts/seed-routes.ts"
   },
   "dependencies": {
     "dotenv": "^17.4.2",

@@ -23,6 +23,7 @@ export interface DestinationResult {
   score: ScoreBreakdown;
   climate: { temp_avg: number | null; precip_avg: number | null };
   events_count: number;
+  flight_direct: boolean;   // esiste una rotta diretta origine→destinazione
   teleport_scores: {
     overall: number | null;
     cost_of_living: number | null;
@@ -112,21 +113,28 @@ export async function searchDestinations(params: SearchParams): Promise<SearchRe
     [travelMonths]
   );
 
+  // Rotte dirette dall'origine verso gli aeroporti delle destinazioni (una sola query)
+  const destIatas    = rows.map((r) => r.airport_iata).filter(Boolean);
+  const directRes    = await db.query<{ dst_iata: string }>(
+    "SELECT dst_iata FROM routes WHERE src_iata = $1 AND dst_iata = ANY($2::text[])",
+    [fromIata.toUpperCase(), destIatas]
+  );
+  const directSet    = new Set(directRes.rows.map((r) => r.dst_iata));
+
   const results: DestinationResult[] = [];
 
   for (const row of rows) {
-    const cost = calculateCost({
-      originLat,
-      originLon,
-      destLat:           Number(row.latitude),
-      destLon:           Number(row.longitude),
-      travelMonth,
-      daysUntilFlight,
-      nights,
+    // Tutte le destinazioni: costo stimato (volo A/R ×2 + hotel). Prezzi reali solo nel dettaglio.
+    const cost: DestinationCost = calculateCost({
+      originLat, originLon,
+      destLat: Number(row.latitude), destLon: Number(row.longitude),
+      travelMonth, daysUntilFlight, nights,
       costOfLivingScore: row.score_cost_of_living ? Number(row.score_cost_of_living) : null,
     });
 
     if (cost.total_cents > budgetCents) continue;
+
+    const flight_direct = directSet.has(row.airport_iata);
 
     const score = scoreDestination({
       cost,
@@ -150,6 +158,7 @@ export async function searchDestinations(params: SearchParams): Promise<SearchRe
       airport_iata: row.airport_iata,
       cost,
       score,
+      flight_direct,
       climate: {
         temp_avg:   row.climate_temp_avg   ? Number(row.climate_temp_avg)   : null,
         precip_avg: row.climate_precip_avg ? Number(row.climate_precip_avg) : null,

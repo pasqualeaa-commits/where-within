@@ -11,8 +11,8 @@ Travel destination recommender: given a budget and date range, suggests the best
 ## Stack
 - **Framework**: Next.js 15 (App Router, TypeScript)
 - **Styling**: Tailwind CSS
-- **Database**: PostgreSQL (Docker container)
-- **Proxy**: Nginx (Docker container, SSL via Let's Encrypt)
+- **Database**: PostgreSQL — locale nativo in dev, Docker in produzione
+- **Proxy**: Nginx (Docker container, SSL via Let's Encrypt) — solo produzione
 
 ## Free data sources
 | Data | Source | Auth needed |
@@ -60,10 +60,23 @@ scripts/
 
 ## Commands
 ```bash
-docker compose up -d        # start all services
-docker compose logs -f app  # follow app logs
-npm run dev                 # local dev (no Docker)
-npm run build               # production build
+# Sviluppo locale (PostgreSQL nativo, .env.local → localhost:5432)
+npm run dev
+npm run db:seed
+npm run db:seed-airports
+npm run db:seed-climate
+
+# Produzione su Linux (Docker)
+docker compose -f docker-compose.yml up -d
+docker compose logs -f app
+```
+
+## Setup locale una-tantum
+```sql
+-- in psql -U postgres
+CREATE USER "wherewIthin" WITH PASSWORD 'password';
+CREATE DATABASE "wherewIthin" OWNER "wherewIthin";
+GRANT ALL PRIVILEGES ON DATABASE "wherewIthin" TO "wherewIthin";
 ```
 
 ## Key conventions

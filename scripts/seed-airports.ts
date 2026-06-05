@@ -1,4 +1,6 @@
-import "dotenv/config";
+import dotenv from "dotenv";
+dotenv.config({ path: ".env.local", override: true });
+dotenv.config({ override: true });
 import { Pool } from "pg";
 
 const db = new Pool({ connectionString: process.env.DATABASE_URL });

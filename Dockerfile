@@ -3,6 +3,17 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
+# Stage dedicato ai seed script — ha tutte le devDependencies (tsx, @types/pg...)
+# Non esegue la build Next.js, quindi è veloce da buildare
+FROM node:22-alpine AS scripts
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY scripts/ ./scripts/
+COPY src/lib/ ./src/lib/
+COPY src/types/ ./src/types/
+COPY tsconfig.json ./
+
 FROM node:22-alpine AS builder
 WORKDIR /app
 COPY package.json package-lock.json ./

@@ -1,4 +1,6 @@
-import "dotenv/config";
+import dotenv from "dotenv";
+dotenv.config({ path: ".env.local", override: true });
+dotenv.config({ override: true });
 import { Pool } from "pg";
 
 const db = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -88,19 +90,26 @@ function sum(values: number[]): number | null {
 }
 
 async function main() {
+  // Solo destinazioni che NON hanno ancora dati clima — rende i re-run idempotenti
+  // (utile dopo un rate-limit di Open-Meteo: si rilancia e completa le mancanti)
+  const onlyMissing = !process.argv.includes("--all");
   const { rows: destinations } = await db.query<{
     id: number;
     name: string;
     latitude: number;
     longitude: number;
   }>(
-    "SELECT id, name, latitude, longitude FROM destinations WHERE latitude IS NOT NULL ORDER BY id"
+    `SELECT id, name, latitude, longitude FROM destinations
+     WHERE latitude IS NOT NULL
+     ${onlyMissing ? "AND id NOT IN (SELECT DISTINCT destination_id FROM climate_monthly)" : ""}
+     ORDER BY id`
   );
 
-  console.log(`Seed clima per ${destinations.length} destinazioni...\n`);
+  console.log(`Seed clima per ${destinations.length} destinazioni${onlyMissing ? " (solo mancanti)" : ""}...\n`);
 
   let done = 0;
-  const BATCH = 3; // Open-Meteo free: massimo ~10 req/s, usiamo 3 per sicurezza
+  let failed = 0;
+  const BATCH = 2; // archive-api Open-Meteo è severo sul rate limit
 
   for (let i = 0; i < destinations.length; i += BATCH) {
     const batch = destinations.slice(i, i + BATCH);
@@ -114,6 +123,7 @@ async function main() {
 
         if (!monthly) {
           console.warn(`  [skip] ${dest.name}`);
+          failed++;
           return;
         }
 
@@ -144,10 +154,11 @@ async function main() {
       })
     );
 
-    if (i + BATCH < destinations.length) await sleep(300);
+    if (i + BATCH < destinations.length) await sleep(1200);
   }
 
-  console.log("\nSeed clima completato.");
+  console.log(`\nSeed clima: ${done} completate, ${failed} fallite (rate-limit?).`);
+  if (failed > 0) console.log("Rilancia tra qualche minuto: npm run db:seed-climate");
   await db.end();
 }
 
